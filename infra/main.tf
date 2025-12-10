@@ -200,40 +200,40 @@ resource "aws_lb_target_group" "gastos_tg" {
 }
 
 # N. Configuración de Dominio y Certificado SSL (asumiendo Route 53)
-data "aws_route53_zone" "primary" {
-  name           = "elibarractrlgastos.com." 
-  private_zone = false
-}
+# data "aws_route53_zone" "primary" {
+#  name           = "elibarractrlgastos.com." 
+#  private_zone = false
+# }
 
-resource "aws_acm_certificate" "gastos_cert" {
-  domain_name     = "app.elibarractrlgastos.com"
-  validation_method = "DNS"
-  tags = {
-    Name = "gastos-app-cert"
-  }
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+# resource "aws_acm_certificate" "gastos_cert" {
+#  domain_name     = "app.elibarractrlgastos.com"
+#  validation_method = "DNS"
+#  tags = {
+#    Name = "gastos-app-cert"
+#  }
+#  lifecycle {
+#    create_before_destroy = true
+#  }
+# }
 
 # N1. Registro DNS para validación de ACM (Route 53)
 # ESTO CREA EL REGISTRO CNAME NECESARIO PARA VALIDAR EL CERTIFICADO.
-resource "aws_route53_record" "cert_validation" {
-  name    = tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_name
-  type    = tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_type
-  zone_id = data.aws_route53_zone.primary.zone_id
-  records = [
-    tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_value
-  ]
-  ttl = 60
-}
+# resource "aws_route53_record" "cert_validation" {
+#  name    = tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_name
+#  type    = tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_type
+#  zone_id = data.aws_route53_zone.primary.zone_id
+#  records = [
+#    tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_value
+#  ]
+#  ttl = 60
+#}
 
 # N2. Esperar a que el certificado sea validado por DNS
 # ESTO FUERZA A TERRAFORM A ESPERAR LA VALIDACIÓN (LO QUE CAUSÓ EL ERROR UnsupportedCertificate).
-resource "aws_acm_certificate_validation" "cert_validation" {
-  certificate_arn         = aws_acm_certificate.gastos_cert.arn
-  validation_record_fqdns = [aws_route53_record.cert_validation.fqdn]
-}
+# resource "aws_acm_certificate_validation" "cert_validation" {
+#  certificate_arn         = aws_acm_certificate.gastos_cert.arn
+#  validation_record_fqdns = [aws_route53_record.cert_validation.fqdn]
+#}
 
 
 # O. Listener HTTP (Puerto 80: Redirige al Target Group)
@@ -249,32 +249,32 @@ resource "aws_lb_listener" "http_listener" {
 }
 
 # P. Listener HTTPS (Puerto 443: Usa el certificado SSL )
-resource "aws_lb_listener" "https_listener" {
-  load_balancer_arn = aws_lb.gastos_alb.arn
-  port              = 443
-  protocol          = "HTTPS"
-  certificate_arn   = aws_acm_certificate.gastos_cert.arn # Certificado SSL
-  
-  depends_on = [aws_acm_certificate_validation.cert_validation] # <--- ¡IMPORTANTE!
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.gastos_tg.arn
-  }
-}
+#resource "aws_lb_listener" "https_listener" {
+#  load_balancer_arn = aws_lb.gastos_alb.arn
+#  port              = 443
+#  protocol          = "HTTPS"
+#  certificate_arn   = aws_acm_certificate.gastos_cert.arn # Certificado SSL
+#  
+#  depends_on = [aws_acm_certificate_validation.cert_validation] # <--- ¡IMPORTANTE!
+#
+#  default_action {
+#    type             = "forward"
+#    target_group_arn = aws_lb_target_group.gastos_tg.arn
+#  }
+#}
 
 # Q. Registro DNS (Route 53: Asocia el dominio al Balanceador de Cargas)
-resource "aws_route53_record" "app_dns" {
-  zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "app.elibarracrlgastos.com" 
-  type    = "A"
+#resource "aws_route53_record" "app_dns" {
+#  zone_id = data.aws_route53_zone.primary.zone_id
+#  name    = "app.elibarracrlgastos.com" 
+#  type    = "A"
 
-  alias {
-    name             = aws_lb.gastos_alb.dns_name
-    zone_id          = aws_lb.gastos_alb.zone_id
-    evaluate_target_health = true
-  }
-}
+#  alias {
+#    name             = aws_lb.gastos_alb.dns_name
+#    zone_id          = aws_lb.gastos_alb.zone_id
+#    evaluate_target_health = true
+#  }
+#}
 
 
 # ----------------------------------------------
