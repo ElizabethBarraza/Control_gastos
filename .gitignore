@@ -1,0 +1,13 @@
+#Este archivo ayuda a tener un código más limpio y no subir cosas inecesarias
+# Dependencias de Node
+/node_modules
+npm-debug.log
+.DS_Store
+
+
+# Archivos de Terraform que NO deben subirse
+# No subir archivos con datos sensibles 
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
