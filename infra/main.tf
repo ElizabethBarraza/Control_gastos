@@ -4,8 +4,8 @@
 
 # A. Definición de la VPC
 resource "aws_vpc" "app_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
+  cidr_block             = "10.0.0.0/16"
+  enable_dns_support     = true
   enable_dns_hostnames = true
 
   tags = { Name = "gastos-app-vpc" }
@@ -24,6 +24,7 @@ resource "aws_subnet" "public_subnet_b" {
   vpc_id                  = aws_vpc.app_vpc.id
   cidr_block              = "10.0.2.0/24"
   availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = true
   tags                    = { Name = "gastos-app-public-b" }
 }
 
@@ -77,11 +78,29 @@ resource "aws_security_group" "alb_sg" {
   vpc_id = aws_vpc.app_vpc.id
   name   = "alb-sg"
 
-  # Entrada: HTTP/80 y HTTPS/443 desde cualquier lugar
-  ingress { from_port = 80; to_port = 80; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  ingress { from_port = 443; to_port = 443; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"] }
-  # Salida libre
-  egress { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  # Entrada: HTTP/80 desde cualquier lugar 
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Entrada: HTTPS/443 desde cualquier lugar 
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Salida libre 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # H. Security Group para el Servicio ECS/Fargate
@@ -96,8 +115,14 @@ resource "aws_security_group" "ecs_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
   }
-  # Salida libre
-  egress { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+
+  # Salida libre 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # I. Security Group para la Base de Datos (RDS)
@@ -112,12 +137,18 @@ resource "aws_security_group" "db_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs_sg.id]
   }
-  # Salida libre
-  egress { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+
+  # Salida libre 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 # ----------------------------------------------
-# [cite_start]3. BASE DE DATOS GESTIONADA (AWS RDS) [cite: 22]
+# 3. BASE DE DATOS GESTIONADA (AWS RDS) 
 # ----------------------------------------------
 
 # J. Grupo de Subredes DB (Requisito de RDS)
@@ -142,7 +173,7 @@ resource "aws_db_instance" "gastos_db" {
 }
 
 # ----------------------------------------------
-# [cite_start]4. BALANCEADOR DE CARGAS (ALB) Y CERTIFICADO SSL [cite: 23, 26]
+# 4. BALANCEADOR DE CARGAS (ALB) Y CERTIFICADO SSL 
 # ----------------------------------------------
 
 # L. Balanceador de Cargas (Application Load Balancer)
@@ -155,12 +186,12 @@ resource "aws_lb" "gastos_alb" {
 
 # M. Target Group (Destino: ECS Service en puerto 3000)
 resource "aws_lb_target_group" "gastos_tg" {
-  name     = "gastos-tg"
-  port     = 3000
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.app_vpc.id
+  name       = "gastos-tg"
+  port       = 3000
+  protocol   = "HTTP"
+  vpc_id     = aws_vpc.app_vpc.id
 
-  [cite_start]health_check { # Health Check configurado [cite: 24]
+  health_check { # Health Check configurado 
     path    = "/"
     matcher = "200"
   }
@@ -168,12 +199,12 @@ resource "aws_lb_target_group" "gastos_tg" {
 
 # N. Configuración de Dominio y Certificado SSL (asumiendo Route 53)
 data "aws_route53_zone" "primary" {
-  name         = "midominio-gratuito.com." # << REEMPLAZAR con tu dominio
+  name           = "midominio-gratuito.com." # << REEMPLAZAR con tu dominio
   private_zone = false
 }
 
 resource "aws_acm_certificate" "gastos_cert" {
-  domain_name       = "app.midominio-gratuito.com" # << REEMPLAZAR con tu subdominio
+  domain_name     = "app.midominio-gratuito.com" # << REEMPLAZAR con tu subdominio
   validation_method = "DNS"
 }
 
@@ -189,7 +220,7 @@ resource "aws_lb_listener" "http_listener" {
   }
 }
 
-# [cite_start]P. Listener HTTPS (Puerto 443: Usa el certificado SSL [cite: 26])
+# P. Listener HTTPS (Puerto 443: Usa el certificado SSL )
 resource "aws_lb_listener" "https_listener" {
   load_balancer_arn = aws_lb.gastos_alb.arn
   port              = 443
@@ -202,22 +233,22 @@ resource "aws_lb_listener" "https_listener" {
   }
 }
 
-# [cite_start]Q. Registro DNS (Route 53: Asocia el dominio al Balanceador de Cargas [cite: 25])
+# Q. Registro DNS (Route 53: Asocia el dominio al Balanceador de Cargas)
 resource "aws_route53_record" "app_dns" {
   zone_id = data.aws_route53_zone.primary.zone_id
   name    = "app.midominio-gratuito.com" # << REEMPLAZAR con tu subdominio
   type    = "A"
 
   alias {
-    name                   = aws_lb.gastos_alb.dns_name
-    zone_id                = aws_lb.gastos_alb.zone_id
+    name             = aws_lb.gastos_alb.dns_name
+    zone_id          = aws_lb.gastos_alb.zone_id
     evaluate_target_health = true
   }
 }
 
 
 # ----------------------------------------------
-# [cite_start]5. SERVIDOR DE APLICACIONES (ECS FARGATE) [cite: 18]
+# 5. SERVIDOR DE APLICACIONES (ECS FARGATE) 
 # ----------------------------------------------
 
 # R. Roles de IAM necesarios para ECS Fargate
@@ -225,7 +256,11 @@ resource "aws_iam_role" "ecs_task_role" {
   name = "ecs-task-role-gastos"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{ Action = "sts:AssumeRole"; Effect = "Allow"; Principal = { Service = "ecs-tasks.amazonaws.com" } }]
+    Statement = [{ 
+      Action = "sts:AssumeRole", 
+      Effect = "Allow", 
+      Principal = { Service = "ecs-tasks.amazonaws.com" } 
+    }] # <--- CORREGIDO: Usando comas en lugar de punto y coma
   })
 }
 
@@ -233,12 +268,16 @@ resource "aws_iam_role" "ecs_execution_role" {
   name = "ecs-execution-role-gastos"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{ Action = "sts:AssumeRole"; Effect = "Allow"; Principal = { Service = "ecs-tasks.amazonaws.com" } }]
+    Statement = [{ 
+      Action = "sts:AssumeRole", 
+      Effect = "Allow", 
+      Principal = { Service = "ecs-tasks.amazonaws.com" } 
+    }] # <--- CORREGIDO: Usando comas en lugar de punto y coma
   })
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
-  role       = aws_iam_role.ecs_execution_role.name
+  role        = aws_iam_role.ecs_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
@@ -247,15 +286,15 @@ resource "aws_ecs_cluster" "gastos_cluster" {
   name = "gastos-app-cluster"
 }
 
-# [cite_start]T. Task Definition (La "receta" del contenedor con tu imagen de Docker Hub [cite: 21])
+# T. Task Definition (La "receta" del contenedor con tu imagen de Docker Hub)
 resource "aws_ecs_task_definition" "gastos_task" {
-  family                   = "gastos-task-family"
-  cpu                      = "256"
-  memory                   = "512"
-  network_mode             = "awsvpc"
+  family                 = "gastos-task-family"
+  cpu                    = "256"
+  memory                 = "512"
+  network_mode           = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  execution_role_arn     = aws_iam_role.ecs_execution_role.arn
+  task_role_arn          = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
