@@ -37,12 +37,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Construir la imagen Docker (Verificación de Build)
+        name: Construir la imagen Docker (Verificación de Build)
         uses: docker/build-push-action@v5
         with:
           context: .
-          tags: ${{ secrets.DOCKER_USERNAME }}/gastos-app:ci-build
-          load: true # Solo la construye para verificar, no la sube a Docker Hub
+          
+          tags: gastos-app:ci-build
+          load: true
 
       - name: Resultados de CI
         run: echo "Pruebas y Construcción de Imagen exitosas."
