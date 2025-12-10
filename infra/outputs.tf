@@ -1,4 +1,3 @@
-# infra/outputs.tf
 
 output "alb_url_http" {
   description = "La URL del Balanceador de Cargas (ALB) para la aplicación. Úsala para el entregable."

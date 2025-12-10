@@ -165,9 +165,10 @@ resource "aws_db_instance" "gastos_db" {
   allocated_storage      = 20
   username               = "admin"
   password               = var.db_password
+  db_name                = "gastosdb" # <--- CORREGIDO: Se define el nombre de la DB
   db_subnet_group_name   = aws_db_subnet_group.gastos_db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
-  publicly_accessible    = false # ¡Seguro!
+  publicly_accessible    = false 
   skip_final_snapshot    = true
   tags                   = { Name = "GastosDB" }
 }
@@ -190,6 +191,7 @@ resource "aws_lb_target_group" "gastos_tg" {
   port       = 3000
   protocol   = "HTTP"
   vpc_id     = aws_vpc.app_vpc.id
+  target_type = "ip" # <--- ¡CORRECCIÓN CLAVE! Fargate requiere el target type 'ip'
 
   health_check { # Health Check configurado 
     path    = "/"
@@ -199,16 +201,42 @@ resource "aws_lb_target_group" "gastos_tg" {
 
 # N. Configuración de Dominio y Certificado SSL (asumiendo Route 53)
 data "aws_route53_zone" "primary" {
-  name           = "midominio-gratuito.com." # << REEMPLAZAR con tu dominio
+  name           = "elibarractrlgastos.com." 
   private_zone = false
 }
 
 resource "aws_acm_certificate" "gastos_cert" {
-  domain_name     = "app.midominio-gratuito.com" # << REEMPLAZAR con tu subdominio
+  domain_name     = "app.elibarractrlgastos.com"
   validation_method = "DNS"
+  tags = {
+    Name = "gastos-app-cert"
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
-# O. Listener HTTP (Puerto 80: Dirige al Target Group)
+# N1. Registro DNS para validación de ACM (Route 53)
+# ESTO CREA EL REGISTRO CNAME NECESARIO PARA VALIDAR EL CERTIFICADO.
+resource "aws_route53_record" "cert_validation" {
+  name    = tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_name
+  type    = tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_type
+  zone_id = data.aws_route53_zone.primary.zone_id
+  records = [
+    tolist(aws_acm_certificate.gastos_cert.domain_validation_options)[0].resource_record_value
+  ]
+  ttl = 60
+}
+
+# N2. Esperar a que el certificado sea validado por DNS
+# ESTO FUERZA A TERRAFORM A ESPERAR LA VALIDACIÓN (LO QUE CAUSÓ EL ERROR UnsupportedCertificate).
+resource "aws_acm_certificate_validation" "cert_validation" {
+  certificate_arn         = aws_acm_certificate.gastos_cert.arn
+  validation_record_fqdns = [aws_route53_record.cert_validation.fqdn]
+}
+
+
+# O. Listener HTTP (Puerto 80: Redirige al Target Group)
 resource "aws_lb_listener" "http_listener" {
   load_balancer_arn = aws_lb.gastos_alb.arn
   port              = 80
@@ -226,6 +254,8 @@ resource "aws_lb_listener" "https_listener" {
   port              = 443
   protocol          = "HTTPS"
   certificate_arn   = aws_acm_certificate.gastos_cert.arn # Certificado SSL
+  
+  depends_on = [aws_acm_certificate_validation.cert_validation] # <--- ¡IMPORTANTE!
 
   default_action {
     type             = "forward"
@@ -236,7 +266,7 @@ resource "aws_lb_listener" "https_listener" {
 # Q. Registro DNS (Route 53: Asocia el dominio al Balanceador de Cargas)
 resource "aws_route53_record" "app_dns" {
   zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "app.midominio-gratuito.com" # << REEMPLAZAR con tu subdominio
+  name    = "app.elibarracrlgastos.com" 
   type    = "A"
 
   alias {
@@ -260,7 +290,7 @@ resource "aws_iam_role" "ecs_task_role" {
       Action = "sts:AssumeRole", 
       Effect = "Allow", 
       Principal = { Service = "ecs-tasks.amazonaws.com" } 
-    }] # <--- CORREGIDO: Usando comas en lugar de punto y coma
+    }] 
   })
 }
 
@@ -272,7 +302,7 @@ resource "aws_iam_role" "ecs_execution_role" {
       Action = "sts:AssumeRole", 
       Effect = "Allow", 
       Principal = { Service = "ecs-tasks.amazonaws.com" } 
-    }] # <--- CORREGIDO: Usando comas en lugar de punto y coma
+    }] 
   })
 }
 
@@ -312,7 +342,7 @@ resource "aws_ecs_task_definition" "gastos_task" {
         { name = "DB_HOST", value = aws_db_instance.gastos_db.address },
         { name = "DB_USER", value = aws_db_instance.gastos_db.username },
         { name = "DB_PASSWORD", value = var.db_password },
-        { name = "DB_NAME", value = aws_db_instance.gastos_db.name }
+        { name = "DB_NAME", value = aws_db_instance.gastos_db.db_name } # <-- CORREGIDO
       ]
     }
   ])

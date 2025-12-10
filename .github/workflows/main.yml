@@ -28,7 +28,6 @@ jobs:
         run: npm install 
 
       - name: Ejecutar Pruebas Unitarias
-        # Llama al script "test" que está en tu package.json
         run: npm test
 
       # ----------------------------------------
@@ -42,7 +41,7 @@ jobs:
         with:
           context: .
           
-          tags: gastos-app:ci-build
+          tags: elibarraza/gastos-app:ci-build
           load: true
 
       - name: Resultados de CI

@@ -5,7 +5,7 @@ Este repositorio contiene la aplicación de Control de Gastos, su contenedor Doc
 ## Enlaces Importantes
 
 * [cite_start]**URL Pública Funcional:** [Añadir enlace HTTPS aquí cuando esté desplegado] 
-* [cite_start]**Imagen Docker Hub:** `elibarraza/gastos-app:1.0` [cite: 41]
+* [cite_start]**Imagen Docker Hub:** `elibarraza/gastos-app:1.0` 
 
 ## Instrucciones de Ejecución Local (Docker)
 
